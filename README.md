@@ -51,7 +51,7 @@ The system enforces a "2-meter" violation rule using LiDAR calibration to ensure
 ### **Hardware**
 | Component | Usage | Cost |
 | :--- | :--- | :--- |
-| **TurtleBot 3 Burger** | Primary mobile processing and enforcement unit. | 20K EGP |
+| **TurtleBot 3 Burger** | Primary mobile processing and enforcement unit. | Borrowed |
 | **Raspberry Pi 4 (B)** | Cognitive layer hosting software and communication. | Included |
 | **LiDAR Sensor** | 360° environment scanning and obstacle mapping. | Included |
 | **Cars (5pcs)** | Simulate road traffic for the maquette environment. | 60 EGP/pc |
