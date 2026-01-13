@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ali Kotb | STEMpire Traffic Bot</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.7.3/nipplejs.js"></script>
+
+    <style>
+        :root {
+            --bg: #020617;
+            --card: #0f172a;
+            --accent: #f9a826;
+            --green: #10b981;
+            --red: #ef4444;
+            --border: #1e293b;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: #f8fafc;
+            font-family: 'JetBrains Mono', monospace;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .terminal-container {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 25px;
+            width: 95%;
+            max-width: 900px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Mission Control Buttons */
+        .mission-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 15px;
+        }
+
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 18px;
+            border: none;
+            border-radius: 12px;
+            font-family: inherit;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s;
+            text-transform: uppercase;
+            font-size: 1rem;
+        }
+
+        .btn-start {
+            background: var(--green);
+            color: #020617;
+        }
+
+        .btn-stop {
+            background: var(--red);
+            color: #fff;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            filter: brightness(1.1);
+        }
+
+        /* Output Console */
+        #console-output {
+            background: #000;
+            height: 250px;
+            border-radius: 12px;
+            border: 2px solid var(--border);
+            padding: 15px;
+            overflow-y: auto;
+            color: var(--green);
+            font-size: 0.85rem;
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        /* Movement Section */
+        .movement-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 20px;
+            border-radius: 15px;
+        }
+
+        #joystick-zone {
+            height: 180px;
+            position: relative;
+        }
+
+        .wasd-indicators {
+            display: grid;
+            grid-template-areas: ". w ." "a s d";
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .key {
+            width: 45px;
+            height: 45px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .key.active {
+            background: var(--accent);
+            color: #000;
+            box-shadow: 0 0 15px rgba(249, 168, 38, 0.5);
+        }
+
+        #W {
+            grid-area: w;
+        }
+
+        #A {
+            grid-area: a;
+        }
+
+        #S {
+            grid-area: s;
+        }
+
+        #D {
+            grid-area: d;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="terminal-container">
+        <div class="mission-header">
+            <div>
+                <h1 style="margin:0; font-size: 1.2rem;">> TRAFFIC_CORE_v1.0</h1>
+                <div id="status" style="color: var(--accent); font-size: 0.7rem;">CONNECTING...</div>
+            </div>
+            <div style="text-align: right; color: #64748b; font-size: 0.7rem;">IP: 10.191.59.1</div>
+        </div>
+
+        <div class="btn-grid">
+            <button class="btn btn-start" onclick="triggerEmergency('START')">Emergency START</button>
+            <button class="btn btn-stop" onclick="triggerEmergency('STOP')">Emergency STOP</button>
+        </div>
+
+        <div id="console-output">
+            <div style="color: #64748b;">[SYSTEM] WAITING FOR TOPIC FEEDBACK...</div>
+        </div>
+
+        <div class="movement-grid">
+            <div id="joystick-zone"></div>
+
+            <div class="wasd-indicators">
+                <div class="key" id="W">W</div>
+                <div class="key" id="A">A</div>
+                <div class="key" id="S">S</div>
+                <div class="key" id="D">D</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const robot_ip = '10.191.59.1';
+        const ros = new ROSLIB.Ros({ url: `ws://${robot_ip}:9090` });
+        const consoleDiv = document.getElementById('console-output');
+
+        function log(msg, type = 'sys') {
+            const entry = document.createElement('div');
+            entry.innerText = `[${new Date().toLocaleTimeString()}] ${type === 'usr' ? '> ' : ''}${msg}`;
+            if (type === 'sys') entry.style.color = '#64748b';
+            consoleDiv.appendChild(entry);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        ros.on('connection', () => {
+            document.getElementById('status').innerText = 'CONNECTED_TO_MASTER_ACTIVE';
+            log("COMMUNICATION LINK ESTABLISHED");
+        });
+
+        ros.on('error', () => {
+            document.getElementById('status').innerText = 'CONNECTION_ERROR';
+            log("FAILED TO CONNECT TO ROBOT", "sys");
+        });
+
+        // --- Topic Definitions ---
+        const cmdVel = new ROSLIB.Topic({ ros: ros, name: '/cmd_vel', messageType: 'geometry_msgs/Twist' });
+        const emergencyTopic = new ROSLIB.Topic({ ros: ros, name: '/emergency_trigger', messageType: 'std_msgs/String' });
+
+        function triggerEmergency(action) {
+            emergencyTopic.publish(new ROSLIB.Message({ data: action }));
+            log(`CMD_SENT: ${action}`, 'usr');
+        }
+
+        // --- CONTINUOUS MOVEMENT LOGIC ---
+        let keys = { w: false, a: false, s: false, d: false };
+        const L_SPEED = 0.22; // Max linear speed
+        const A_SPEED = 1.20; // Max angular speed
+        let moveInterval = null;
+
+        // This function calculates speed and sends it to ROS
+        function publishMove() {
+            let lin = 0; let ang = 0;
+
+            // Logic flipped as requested: W is back (-), S is forward (+)
+            if (keys.w) lin -= L_SPEED;
+            if (keys.s) lin += L_SPEED;
+            if (keys.a) ang += A_SPEED;
+            if (keys.d) ang -= A_SPEED;
+
+            const twist = new ROSLIB.Message({
+                linear: { x: lin, y: 0, z: 0 },
+                angular: { x: 0, y: 0, z: ang }
+            });
+
+            cmdVel.publish(twist);
+        }
+
+        // This starts the 10Hz Heartbeat (10 times per second)
+        function startMoveLoop() {
+            if (!moveInterval) {
+                moveInterval = setInterval(publishMove, 100);
+            }
+        }
+
+        // This stops the loop only if NO keys are being pressed
+        function stopMoveLoop() {
+            const anyKeyPressed = Object.values(keys).some(k => k === true);
+            if (!anyKeyPressed && moveInterval) {
+                clearInterval(moveInterval);
+                moveInterval = null;
+                publishMove(); // Send one final "0" message to stop the motors
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            let k = e.key.toLowerCase();
+            if (keys.hasOwnProperty(k)) {
+                e.preventDefault();
+                if (!keys[k]) { // Only if the key was just pressed
+                    keys[k] = true;
+                    document.getElementById(k.toUpperCase()).classList.add('active');
+                    startMoveLoop(); // Ensure the loop is running
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            let k = e.key.toLowerCase();
+            if (keys.hasOwnProperty(k)) {
+                keys[k] = false;
+                document.getElementById(k.toUpperCase()).classList.remove('active');
+                stopMoveLoop(); // Check if we should kill the heartbeat
+            }
+        });
+
+        // --- Joystick Movement ---
+        // Joystick still works independently but will also trigger the heartbeat logic
+        const manager = nipplejs.create({
+            zone: document.getElementById('joystick-zone'),
+            mode: 'static', position: { left: '50%', top: '50%' },
+            color: '#f9a826', size: 120
+        });
+
+        manager.on('move', (evt, data) => {
+            const lin = -(data.distance / 60) * Math.sin(data.angle.radian) * L_SPEED;
+            const ang = -(data.distance / 60) * Math.cos(data.angle.radian) * A_SPEED;
+            cmdVel.publish(new ROSLIB.Message({ linear: { x: lin, y: 0, z: 0 }, angular: { x: 0, y: 0, z: ang } }));
+        });
+
+        manager.on('end', () => {
+            // Force a stop message when joystick is released
+            cmdVel.publish(new ROSLIB.Message({ linear: { x: 0, y: 0, z: 0 }, angular: { x: 0, y: 0, z: 0 } }));
+        });
+
+        window.onblur = () => {
+            keys = { w: false, a: false, s: false, d: false };
+            ['W', 'A', 'S', 'D'].forEach(k => document.getElementById(k).classList.remove('active'));
+            stopMoveLoop();
+            log("WINDOW_FOCUS_LOST: MOTORS HALTED", "sys");
+        };
+    </script>
+</body>
+
+</html>
